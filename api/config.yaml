@@ -4,7 +4,7 @@ ldap:
 
 
 vpn: 
-  node-ip : 10.0.0.1
+  endpoints : 10.0.0.1:1000
   vpn-subnet: 10.0.0.0/16
   vpn-subnet6:
   routing-subnets:
@@ -13,6 +13,7 @@ vpn:
   - 10.1.0.0/16
 
   reserved-ips:
-  - 10.0.0.0/25
+  - 10.0.0.2
+  - 10.0.0.0/24
   - 10.0.13.0/24
   - 10.0.10.0/24
