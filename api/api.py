@@ -9,6 +9,7 @@ import ipaddress
 import wgtools
 import sqlite3
 
+con = sqlite3.connect('wgapi.db')
 with open(r'api/config.yaml') as file:
     config = yaml.load(file, Loader=yaml.FullLoader)
 config_ldap=config['ldap']
