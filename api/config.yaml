@@ -1,0 +1,18 @@
+ldap:
+  host: 127.0.0.1
+  dn: dc=ldap,dc=ivan,dc=site
+
+
+vpn: 
+  node-ip : 10.0.0.1
+  vpn-subnet: 10.0.0.0/16
+  vpn-subnet6:
+  routing-subnets:
+  - 192.168.0.0/24
+  - 192.168.1.0/24
+  - 10.1.0.0/16
+
+  reserved-ips:
+  - 10.0.0.0/25
+  - 10.0.13.0/24
+  - 10.0.10.0/24

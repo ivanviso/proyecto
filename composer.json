@@ -1,0 +1,12 @@
+{
+    "name": "root/proyecto",
+    "require": {
+        "guzzlehttp/guzzle": "^7.3"
+    },
+    "authors": [
+        {
+            "name": "ivan viso altamirano",
+            "email": "ivanviso123@gmail.com"
+        }
+    ]
+}
