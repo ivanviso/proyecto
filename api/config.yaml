@@ -4,7 +4,9 @@ ldap:
 
 
 vpn: 
-  endpoints : 10.0.0.1:1000
+  device : wg0
+  port : 6543
+  private_key: /key
   vpn-subnet: 10.0.0.0/16
   vpn-subnet6:
   routing-subnets:
@@ -14,6 +16,3 @@ vpn:
 
   reserved-ips:
   - 10.0.0.2
-  - 10.0.0.0/24
-  - 10.0.13.0/24
-  - 10.0.10.0/24
