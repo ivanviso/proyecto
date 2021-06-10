@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="bootstrap/css/bootst">
 
 <form action="/action_page.php">
   <div class="form-group">
