@@ -4,4 +4,4 @@ def ldaplogin(host,user,dn,psw):
     c = Connection(s, user=f'cn={user},{dn}', password=psw)
     if not c.bind():
         print('error in bind', c.result)
-    
+ldaplogin ('167.99.221.214','usuario2111','ou=usuarios,dc=ldap,dc=ivan,dc=site','abcABC123'
