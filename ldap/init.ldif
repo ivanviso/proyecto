@@ -1,0 +1,7 @@
+dn: ou=usuarios,dc=ldap,dc=ivan,dc=site
+objectClass: organizationalUnit
+ou: usuarios
+
+dn: cn=usuario1,ou=usuarios,dc=ldap,dc=ivan,dc=site
+objectClass: PosixAccount
+cn: usuario1

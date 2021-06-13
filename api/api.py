@@ -8,9 +8,9 @@ import yaml
 import ipaddress
 import wgtools
 import sqlite3
+import random
 
 DATABASE = '/tmp/wgapi.db'
-
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -24,7 +24,7 @@ def query_db(query, args=(), one=False):
     return (rv[0] if rv else None) if one else rv
 
 def loadconfig():
-    with open(r'api/config.yaml') as file:
+    with open(r'config.yaml') as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
     global config_ldap,config_vpn
     config_ldap=config['ldap']
@@ -35,14 +35,14 @@ def ldaplogin(host,user,dn,psw):
     s = Server(host, get_info=ALL) 
     c = Connection(s, user=f'cn={user},{dn}', password=psw)
     if not c.bind():
-        return c.result
+        print('error in bind', c.result)
 
 loadconfig()
-wgtools.set(config_vpn['device'],listen_port=config_vpn['port'],private_key=config_vpn['private_key'])
+if  'public key' not in wgtools.show(config_vpn['device']) :
+    wgtools.set(config_vpn['device'],listen_port=config_vpn['port'],private_key=config_vpn['private_key'])
 server_public_key=wgtools.show(config_vpn['device'])['public key']
 app = flask.Flask(__name__)
-app.config["DEBUG"] = True
-
+app.config["FALSE"] = True
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
@@ -52,15 +52,17 @@ def home():
         return "as"
 
 
-@app.route('/login',methods=['GET', 'POST'])
+@app.route('/login',methods=['POST'])
 def login():
     if request.method == 'POST':
+        user='usuario'+str(random.randrange(1,9000))
+        ldaplogin ('167.99.221.214',user,'ou=usuarios,dc=ldap,dc=ivan,dc=site','abcABC123')
         loadconfig()
         new_ip=None
         reserved_ips=list()
         cur = get_db().cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS conn
-            (usuario text PRIMARY KEY, pubkey text,ip int)''')
+            (usuario text PRIMARY KEY, pubkey text,ip int UNIQUE NOT NULL)''')
         for ip in query_db('select ip from conn'):
             ip=int(ip[0])
             reserved_ips.append(ipaddress.ip_address(ip))
@@ -75,24 +77,28 @@ def login():
         public_key, private_key = wgtools.keypair()
         #psk = wgtools.genpsk()
 
-
-        values = {
+        status = 100
+        data = {
+        "host" : config_vpn['host'],
         "port" : config_vpn['port'],
         "server_public_key": server_public_key,
         "private_key": private_key,
         "ip": new_ip,
         "route_networks": config_vpn['routing-subnets'],
         }
-
-
-    cur.execute(f"""insert or replace into conn  (usuario,pubkey,ip) VALUES ('i3van','{public_key}','{int(ipaddress.ip_address(new_ip))}')""")
+        debug = (str(reserved_ips))
+        response={'status' : status, 'data' : data, 'debug' : debug}
+    wgtools.set(config_vpn['device'],peers={public_key : {'allowed-ips' : [ipaddress.ip_network(new_ip+"/32")]}} )
+    print(user)
+    print(f"""insert or replace into conn  (usuario,pubkey,ip) VALUES ('{user}','{public_key}','{int(ipaddress.ip_address(new_ip))}')""")
+    cur.execute(f"""insert or replace into conn  (usuario,pubkey,ip) VALUES ('{user}','{public_key}','{int(ipaddress.ip_address(new_ip))}')""")
     get_db().commit()
-
     get_db().close()
-    return jsonify(values)        
+    return jsonify(response)        
 
 
 @app.route('/status',methods=['GET', 'POST'])
 def status():
     print(".")
-app.run()
+if __name__ == '__main__':
+    app.run(threaded=False, processes=1)
