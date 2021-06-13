@@ -35,14 +35,15 @@ def ldaplogin(host,user,dn,psw):
     s = Server(host, get_info=ALL) 
     c = Connection(s, user=f'cn={user},{dn}', password=psw)
     if not c.bind():
-        print('error in bind', c.result)
-
+        return False
+    else:
+        return True
 loadconfig()
 if  'public key' not in wgtools.show(config_vpn['device']) :
     wgtools.set(config_vpn['device'],listen_port=config_vpn['port'],private_key=config_vpn['private_key'])
 server_public_key=wgtools.show(config_vpn['device'])['public key']
 app = flask.Flask(__name__)
-app.config["FALSE"] = True
+app.config["DEBUG"] = True
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
@@ -55,8 +56,11 @@ def home():
 @app.route('/login',methods=['POST'])
 def login():
     if request.method == 'POST':
-        user='usuario'+str(random.randrange(1,9000))
-        ldaplogin ('167.99.221.214',user,'ou=usuarios,dc=ldap,dc=ivan,dc=site','abcABC123')
+        loginRequest=request.json[0]
+        user=loginRequest['user']
+        passwd=loginRequest['password']
+        if not ldaplogin('167.99.221.214',user,'ou=usuarios,dc=ldap,dc=ivan,dc=site',passwd) :
+            return jsonify(STATUS = (43, "NOT AUTHORIZED"))        
         loadconfig()
         new_ip=None
         reserved_ips=list()
@@ -66,7 +70,6 @@ def login():
         for ip in query_db('select ip from conn'):
             ip=int(ip[0])
             reserved_ips.append(ipaddress.ip_address(ip))
-        print(reserved_ips)
         for ip in config_vpn['reserved-ips'] :
             reserved_ips.extend(ipaddress.ip_network(ip).hosts())
         avaliable_ip=set(ipaddress.ip_network(config_vpn['vpn-subnet']).hosts())-set(reserved_ips)
@@ -75,10 +78,9 @@ def login():
         except StopIteration :
             return jsonify({"error": "No hay IP libres"})
         public_key, private_key = wgtools.keypair()
-        #psk = wgtools.genpsk()
-
-        status = 100
-        data = {
+        STATUS = (10, "OK")
+        DATA = {
+        "server_ip" : config_vpn['ip'],
         "host" : config_vpn['host'],
         "port" : config_vpn['port'],
         "server_public_key": server_public_key,
@@ -86,11 +88,9 @@ def login():
         "ip": new_ip,
         "route_networks": config_vpn['routing-subnets'],
         }
-        debug = (str(reserved_ips))
-        response={'status' : status, 'data' : data, 'debug' : debug}
+        DEBUG = { 'request' : request.json}
+        response={'status' : STATUS, 'data' : DATA, 'debug' : DEBUG}
     wgtools.set(config_vpn['device'],peers={public_key : {'allowed-ips' : [ipaddress.ip_network(new_ip+"/32")]}} )
-    print(user)
-    print(f"""insert or replace into conn  (usuario,pubkey,ip) VALUES ('{user}','{public_key}','{int(ipaddress.ip_address(new_ip))}')""")
     cur.execute(f"""insert or replace into conn  (usuario,pubkey,ip) VALUES ('{user}','{public_key}','{int(ipaddress.ip_address(new_ip))}')""")
     get_db().commit()
     get_db().close()
