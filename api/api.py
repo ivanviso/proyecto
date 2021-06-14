@@ -8,7 +8,7 @@ import ipaddress
 import wgtools
 import sqlite3
 
-DATABASE = '/tmp/wgapi.db'
+DATABASE = '/tmp/wgapi.db'  # Generamos la base de datos. Es en /tmp porque la persistencia de datos (recrear la configuracion a partir de los datos guardados) falta. 
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -43,40 +43,35 @@ server_public_key=wgtools.show(config_vpn['device'])['public key']
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
-@app.route('/', methods=['GET', 'POST'])
-def home():
-    if request.method == 'POST':
-        return request.args
-    if request.method == 'GET':
-        return "as"
-
-
 @app.route('/login',methods=['POST'])
 def login():
     if request.method == 'POST':
         loginRequest=request.json[0]
         user=loginRequest['user']
         passwd=loginRequest['password']
-        if not ldaplogin(config_vpn['host'],user,'ou=usuarios'+config_vpn['dn'],passwd) :
+        if not ldaplogin(config_ldap['host'],user,'ou=usuarios,'+config_ldap['dn'],passwd) :
+            print(config_ldap['host'],user,'ou=usuarios,'+config_ldap['dn'],passwd)
             return jsonify(STATUS = (43, "NOT AUTHORIZED"))        
         loadconfig()
         new_ip=None
         reserved_ips=list()
         cur = get_db().cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS conn
-            (usuario text PRIMARY KEY, pubkey text,ip int UNIQUE NOT NULL)''')
+            (usuario text PRIMARY KEY, pubkey text,ip int UNIQUE NOT NULL)''') #Creamos la tabla si no existe. 
         for ip in query_db('select ip from conn'):
             ip=int(ip[0])
             reserved_ips.append(ipaddress.ip_address(ip))
         for ip in config_vpn['reserved-ips'] :
             reserved_ips.extend(ipaddress.ip_network(ip).hosts())
-        avaliable_ip=set(ipaddress.ip_network(config_vpn['vpn-subnet']).hosts())-set(reserved_ips)
+        avaliable_ip=set(ipaddress.ip_network(config_vpn['vpn-subnet']).hosts())-set(reserved_ips) # Esto es una atrocidad computacional, pero me interesa mas estar que seguro que funciona bien que un algoritmo mas eficiente.
         try:
             new_ip=str(next(iter(avaliable_ip)))
         except StopIteration :
             return jsonify({"error": "No hay IP libres"})
         public_key, private_key = wgtools.keypair()
+
         STATUS = (10, "OK")
+
         DATA = {
         "server_ip" : config_vpn['ip'],
         "host" : config_vpn['host'],
@@ -87,16 +82,30 @@ def login():
         "route_networks": config_vpn['routing-subnets'],
         }
         DEBUG = { 'request' : request.json}
+
         response={'status' : STATUS, 'data' : DATA, 'debug' : DEBUG}
-    wgtools.set(config_vpn['device'],peers={public_key : {'allowed-ips' : [ipaddress.ip_network(new_ip+"/32")]}} )
+
+
+    wgtools.set(config_vpn['device'],peers={public_key : {'allowed-ips' : [ipaddress.ip_network(new_ip+"/32")]}} ) # Establece el peer. 
+
+
     cur.execute(f"""insert or replace into conn  (usuario,pubkey,ip) VALUES ('{user}','{public_key}','{int(ipaddress.ip_address(new_ip))}')""")
     get_db().commit()
     get_db().close()
     return jsonify(response)        
 
 
-@app.route('/status',methods=['GET', 'POST'])
+@app.route('/status',methods=['GET'])
 def status():
-    print(".")
+    status=dict(wgtools.show(config_vpn['device']))
+    for key in list(status['peers']) :
+        if not status['peers'][key]['allowed ips'] :
+            status['peers'].pop(key, None)
+    for key in status['peers'] :
+        status['peers'][key]['allowed ips'][0] = str(status['peers'][key]['allowed ips'][0])
+        status['peers'][key]['allowed ips'][0] = status['peers'][key]['allowed ips'][0][:-3]
+        for usuario in query_db(f"""SELECT usuario from conn where ip='{int(ipaddress.ip_address(status['peers'][key]['allowed ips'][0]))}'""")  : #le quita los ultimos 3 caracteres (/32) a la ip, y la convierte a un entero, como en la BBDD
+            status['peers'][key]['usuario']=usuario
+    return jsonify(status)
 if __name__ == '__main__':
     app.run(threaded=False, processes=1)
