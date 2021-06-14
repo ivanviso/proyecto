@@ -57,7 +57,7 @@ def login():
         loginRequest=request.json[0]
         user=loginRequest['user']
         passwd=loginRequest['password']
-        if not ldaplogin('167.99.221.214',user,'ou=usuarios,dc=ldap,dc=ivan,dc=site',passwd) :
+        if not ldaplogin(config_vpn['host'],user,'ou=usuarios'+config_vpn['dn'],passwd) :
             return jsonify(STATUS = (43, "NOT AUTHORIZED"))        
         loadconfig()
         new_ip=None

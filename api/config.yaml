@@ -1,5 +1,5 @@
 ldap:
-  host: 127.0.0.1
+  host: 167.99.221.214
   dn: dc=ldap,dc=ivan,dc=site
 
 
