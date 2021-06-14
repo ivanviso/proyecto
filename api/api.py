@@ -1,14 +1,12 @@
 from hashlib import new
 import flask
 from flask import request, jsonify,g
-import json
 from ldap3.protocol.convert import substring_to_dict
 from pyasn1.type.univ import Null
 import yaml
 import ipaddress
 import wgtools
 import sqlite3
-import random
 
 DATABASE = '/tmp/wgapi.db'
 def get_db():
